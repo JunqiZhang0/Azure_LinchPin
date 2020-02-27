@@ -1,0 +1,27 @@
+---
+- name: "declaring output vars"
+  set_fact:
+    topology_outputs_azure_vm: []
+    topology_outputs_azure_vn: []
+    topology_outputs_azure_vn_subnet: []
+    topology_outputs_azure_res_grp: []
+    topology_outputs_azure_net_interface: []
+    topology_outputs_azure_api: []
+    topology_outputs_azure_publicip: []
+    topology_outputs_azure_loadbalancer: []
+    topology_outputs_azure_availabilityset: []
+    topology_outputs_azure_nsg: []
+    topology_outputs_azure_storage_account: []
+
+- name: "Initiating Provisioning of Azure resource group"
+  include: provision_resource_group.yml res_grp={{ item }}
+  with_items:
+    - "{{ resources }}"
+  when: state == "present"
+  check_mode: "{{ _check_mode }}"
+
+- name: "Initiating Teardown of Azure resource group"
+  include: teardown_resource_group.yml res_grp={{ item }}
+  with_items:
+    - "{{ resources }}"
+  when: state == "absent"

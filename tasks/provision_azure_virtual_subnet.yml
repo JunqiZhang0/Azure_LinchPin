@@ -1,0 +1,62 @@
+---
+- name: Set vn name
+  set_fact: 
+    vn_name: "{{res_def['virtual_network_name']|default(omit)}}"
+
+- name: Set subnet name
+  set_fact: 
+    virtual_subnet_name: "{{ res_def['subnet_name'] | default(omit) }}"
+- name: "Provisioning Azure Virtual Subnet when not async"
+  azure_rm_subnet:
+    ad_user: "{{ auth_var['user'] | default(omit) }}"
+    password: "{{ auth_var['password'] | default(omit) }}"
+    client_id: "{{ auth_var['client_id'] | default(omit) }}"
+    tenant: "{{ auth_var['tenant'] | default(omit) }}"
+    secret: "{{ auth_var['secret'] | default(omit) }}"
+    subscription_id: "{{ auth_var['subscription_id'] | default(omit) }}"
+    resource_group: "{{ res_def['resource_group'] | default(omit) }}"
+    name: "{{ subnet_name| default(virtual_subnet_name) }}"
+    virtual_network_name: "{{ vs_vn_name|default(vn_name) }}"
+    address_prefix: "{{ res_def['address_prefix']|default('10.1.1.0/24')}}"
+  register: res_def_output
+  when: not _async
+  no_log: "{{ not debug_mode }}"
+
+- name: "Async::Provisioning Azure Virtual Subnet"
+  azure_rm_subnet:
+    ad_user: "{{ auth_var['user'] | default(omit) }}"
+    password: "{{ auth_var['password'] | default(omit) }}"
+    client_id: "{{ auth_var['client_id'] | default(omit) }}"
+    tenant: "{{ auth_var['tenant'] | default(omit) }}"
+    secret: "{{ auth_var['secret'] | default(omit) }}"
+    subscription_id: "{{ auth_var['subscription_id'] | default(omit) }}"
+    resource_group: "{{ res_def['resource_group'] | default(omit) }}"
+    name: "{{ subnet_name| default(virtual_subnet_name) }}"
+    virtual_network_name: "{{ vs_vn_name|default(vn_name) }}"
+    address_prefix: "{{ res_def['address_prefix']|default('10.1.0.0/24')}}"
+  async: "{{ async_timeout }}"
+  poll: 0
+  register: res_def_output
+  when: _async
+  no_log: "{{ not debug_mode }}"
+
+- name: "Append outputitem to topology_outputs"
+  set_fact:
+    topology_outputs_azure_vn_subnet: "{{ topology_outputs_azure_vn_subnet + [res_def_output] }}"
+  when: res_def_output['changed'] == true and not _async
+
+- name: "Async:: Append outputitem to topology_outputs"
+  set_fact:
+    async_outputs_azure_vn_subnet: "{{ async_outputs_azure_vn_subnet + [res_def_output] }}"
+  when: _async
+
+
+- name: "Add type to resource"
+  set_fact:
+    topology_outputs_azure_vn_subnet: "{{ topology_outputs_azure_vn_subnet | add_res_data(res_grp_type, res_def['role']) }}"
+
+
+- name: "Async:: Add type to resource"
+  set_fact:
+    async_outputs_azure_vn_subnet: "{{ async_outputs_azure_vn_subnet | add_res_data(res_grp_type, res_def['role']) }}"
+  when: _async

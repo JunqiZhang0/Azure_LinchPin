@@ -1,0 +1,93 @@
+---
+- name: Set the vm name
+  set_fact:
+    vm_name: "{{res_def['vm_name']}}"
+
+- name: Set the vn name
+  set_fact:
+    vn_name: "{{res_def['vm_name']+ '-' + uhash + '_' }}" 
+
+- name: Set resource group
+  set_fact:
+    resource_group: "{{ res_def['resource_group'] }}"
+
+- name: Set subnet name
+  set_fact:
+    subnet_name: "{{ vn_name + uhash}}"
+
+- name: Creating virtual network auomatically...
+  include: provision_azure_virtual_network.yml name={{vn_name}} resource_group={{resource_group}}
+  when: res_def['virtual_network_name'] is not defined
+
+- name: Creating virtual subnet automatically...
+  include: provision_azure_virtual_subnet.yml name={{subnet_name}} vs_vn_name={{vn_name}} resource_group={{resource_group}}
+  when: res_def['virtual_network_name'] is not defined
+
+- name: Make a default image
+  set_fact: 
+    default_img:
+      offer: CoreOS
+      publisher: CoreOS
+      sku: Stable
+      version: latest
+
+- name: "Set public images when public image is defined"
+  set_fact:
+    pub_img: "{{res_def['public_image']}}"
+  when: res_def['public_image'] is defined
+
+- name: "Set default public images"
+  set_fact:
+    pub_img: "{{default_img}}"
+  when: res_def['public_image'] is not defined  
+
+- name: Set image
+  set_fact:
+    image: "{{pub_img}}"
+    when: res_def['private_image'] is not defined   
+
+- name: Set image
+  set_fact: 
+    image: "{{res_def['private_image']}}"
+  when: res_def['private_image'] is defined     
+
+- name: "Generate tempfile"
+  tempfile:
+    suffix: yml
+  register: parsed_defaults
+
+- name: set public key
+  set_fact:
+    ssh_public_keys:
+      - path: "/home/{{ res_def['vm_username'] | default(linchpinUsername) }}/.ssh/authorized_keys"
+        key_data: "{{ res_def['public_key']}}"
+  when: res_def['public_key'] is defined
+
+- name: set public key
+  set_fact:
+    ssh_public_keys: null
+  when: res_def['public_key'] is not defined
+
+- set_fact:
+    res_count: [0]
+  when: res_def['count'] is not defined
+
+- set_fact:
+    res_count: '{{ res_count|default([]) + [item | int] }}'
+  with_sequence: "start=0 end={{ res_def['count'] | int - 1 }}"
+  when: res_def['count'] is defined
+
+- name: Declare name list
+  set_fact:
+    name_list: []
+
+- name: Set name list when
+  set_fact: 
+    name_list: "{{ name_list + [vm_name+item|string] }}"
+  loop: "{{ res_count }}"
+
+- name: Run Provision
+  include: provisionVM.yml nameOfvm={{nameOfvm}}
+  loop: "{{ name_list}}"
+  loop_control:
+    loop_var: nameOfvm

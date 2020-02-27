@@ -1,0 +1,32 @@
+---
+- name: Set the vm name
+  set_fact:
+    vm_name: "{{res_def['vm_name']}}"
+
+- set_fact:
+    res_count: [0]
+  when: res_def['count'] is not defined
+
+- set_fact:
+    res_count: '{{ res_count|default([]) + [item | int] }}'
+  with_sequence: "start=0 end={{ res_def['count'] | int - 1 }}"
+  when: res_def['count'] is defined
+
+- name: Declare name list
+  set_fact:
+    name_list: []
+
+- name: Set name list when
+  set_fact: 
+    name_list: "{{ name_list + [vm_name+item|string] }}"
+  loop: "{{ res_count }}"
+
+- name: Get Virtual Network
+  set_fact:
+    vn_name: "{{topo_output_resources[-1].state.name}}"
+
+- name: Run Teardown
+  include: teardownVM.yml nameOfvm={{nameOfvm}} vn_name={{vn_name}}
+  loop: "{{ name_list}}"
+  loop_control:
+    loop_var: nameOfvm
